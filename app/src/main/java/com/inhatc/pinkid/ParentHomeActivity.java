@@ -139,7 +139,7 @@ public class ParentHomeActivity extends AppCompatActivity implements OnMapReadyC
         btnRegisterLocation.setOnClickListener(v ->
                 startActivity(new Intent(this, LocationRegisterActivity.class)));
         btnSettings.setOnClickListener(v ->
-                startActivity(new Intent(this, SettingsActivity.class)));
+                startActivity(new Intent(this, ParentSettingsActivity.class)));
 
         loadRegisteredLocations();
         loadParentData();

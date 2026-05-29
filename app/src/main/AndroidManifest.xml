@@ -38,7 +38,7 @@
         <activity android:name=".ParentHomeActivity" android:exported="false" />
         <activity android:name=".ParentMapActivity" android:exported="false" />
         <activity android:name=".ChildActivity" android:exported="false" />
-        <activity android:name=".SettingsActivity" android:exported="false" />
+        <activity android:name=".ParentSettingsActivity" android:exported="false" />
         <activity android:name=".LocationRegisterActivity" android:exported="false" />
         <activity android:name=".ChildSettingsActivity" android:exported="false" />
 

@@ -39,7 +39,7 @@ public class ParentMapActivity extends AppCompatActivity implements OnMapReadyCa
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_parent);
+        setContentView(R.layout.activity_map);
 
         db = FirebaseDatabase.getInstance(DB_URL).getReference();
         if (FirebaseAuth.getInstance().getCurrentUser() == null) { finish(); return; }

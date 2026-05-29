@@ -39,6 +39,7 @@
 
 ### 👨‍👩‍👧 계정 & 연결
 - **이메일/비밀번호 회원가입** — 가입 시 보호자(학부모) / 자녀 역할 선택
+- **reCAPTCHA v2 보안 인증** — 로그인 시 Google reCAPTCHA v2 인증 필수 (Firebase Hosting 서빙)
 - **아이 고유 코드** — 자녀 가입 시 6자리 코드 자동 발급, 보호자가 코드를 입력해 1:N 연결
 - **연결 관리** — 보호자가 연결 목록에서 직접 아이 추가 및 연결 해제 가능
 
@@ -92,7 +93,7 @@
     ├── 지도 클릭 → ParentMapActivity (전체화면)
     ├── 위치 등록하기 → LocationRegisterActivity
     ├── 아이 연결하기 → LinkActivity
-    └── 설정(⚙) → SettingsActivity
+    └── 설정(⚙) → ParentSettingsActivity
           ├── 로그아웃 → LoginActivity
           └── 탈퇴하기 → LoginActivity
 
@@ -119,7 +120,9 @@
 | 위치 | Google Play Services Location (`FusedLocationProviderClient`) |
 | 백그라운드 | Android Foreground Service |
 | 인증 | Firebase Authentication (Email/Password) |
+| 보안 인증 | Google reCAPTCHA v2 (WebView + Firebase Hosting) |
 | 데이터베이스 | Firebase Realtime Database (asia-southeast1) |
+| 호스팅 | Firebase Hosting (reCAPTCHA 페이지 서빙) |
 | 지오코딩 | Android `Geocoder` API (API 33+ 콜백 방식) |
 | 거리 계산 | Haversine Formula |
 | 알림 | `NotificationCompat`, `NotificationChannel` |
@@ -246,7 +249,7 @@ app/src/main/
 │   │
 │   ├── ParentHomeActivity.java      # 보호자 홈 (미니맵, 지오펜스)
 │   ├── ParentMapActivity.java       # 보호자 전체화면 지도
-│   ├── SettingsActivity.java        # 보호자 설정
+│   ├── ParentSettingsActivity.java  # 보호자 설정
 │   ├── LocationRegisterActivity.java # 안전 구역 등록·관리
 │   │
 │   ├── ChildActivity.java           # 자녀 홈 (본인 위치 미니맵, SOS 긴급 연락)
@@ -261,16 +264,23 @@ app/src/main/
     │   ├── activity_register.xml
     │   ├── activity_link.xml
     │   ├── activity_parent_home.xml
+    │   ├── activity_map.xml
+    │   ├── activity_parent_settings.xml
     │   ├── activity_child.xml
-    │   ├── activity_settings.xml
     │   ├── activity_child_settings.xml
-    │   └── activity_location_register.xml
+    │   ├── activity_location_register.xml
+    │   └── dialog_captcha.xml       # reCAPTCHA WebView 다이얼로그
     ├── drawable/
     │   ├── edit_bg.xml              # 입력 필드 공통 배경 (연두 테두리, 흰색 채우기)
     │   └── circle_back_btn.xml      # 원형 뒤로가기 버튼
     └── values/
         ├── themes.xml               # 앱 테마 (Material Button 스타일)
         └── strings.xml
+
+public/                              # Firebase Hosting 배포 폴더
+    ├── recaptcha.html               # reCAPTCHA v2 페이지 (Android WebView용)
+    ├── index.html
+    └── 404.html
 ```
 
 <br>
@@ -347,7 +357,13 @@ MAPS_API_KEY=YOUR_MAPS_API_KEY
 manifestPlaceholders = [mapsApiKey: project.findProperty("MAPS_API_KEY") ?: ""]
 ```
 
-**5. 빌드 & 실행**
+**5. reCAPTCHA 호스팅 배포**
+1. [Firebase CLI](https://firebase.google.com/docs/cli) 설치: `npm install -g firebase-tools`
+2. Firebase 로그인: `firebase login`
+3. 프로젝트 루트에서 배포: `firebase deploy --only hosting`
+4. 배포 완료 후 `https://pinkid-1fec4.web.app/recaptcha.html` 접근 확인
+
+**6. 빌드 & 실행**
 ```
 Android Studio에서 프로젝트 열기 → Sync Gradle → Run
 ```

@@ -17,7 +17,7 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
-public class SettingsActivity extends AppCompatActivity {
+public class ParentSettingsActivity extends AppCompatActivity {
 
     private static final String DB_URL = "https://pinkid-1fec4-default-rtdb.asia-southeast1.firebasedatabase.app";
 
@@ -28,7 +28,7 @@ public class SettingsActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_settings);
+        setContentView(R.layout.activity_parent_settings);
 
         txtParentInfo = findViewById(R.id.txtParentInfo);
         txtChildInfo  = findViewById(R.id.txtChildInfo);
@@ -46,9 +46,7 @@ public class SettingsActivity extends AppCompatActivity {
         parentUid = user.getUid();
 
         btnBack.setOnClickListener(v -> finish());
-
         btnLogout.setOnClickListener(v -> showLogoutDialog());
-
         btnWithdraw.setOnClickListener(v -> showWithdrawDialog());
 
         loadData();
@@ -59,11 +57,9 @@ public class SettingsActivity extends AppCompatActivity {
                 .addListenerForSingleValueEvent(new ValueEventListener() {
                     @Override
                     public void onDataChange(DataSnapshot snapshot) {
-                        // 학부모 이름
                         String name = snapshot.child("name").getValue(String.class);
                         if (name != null) txtParentInfo.setText(name);
 
-                        // 연결된 아이 목록
                         DataSnapshot childrenSnap = snapshot.child("children");
                         long count = childrenSnap.getChildrenCount();
 
@@ -76,7 +72,7 @@ public class SettingsActivity extends AppCompatActivity {
 
                     @Override
                     public void onCancelled(DatabaseError error) {
-                        Toast.makeText(SettingsActivity.this,
+                        Toast.makeText(ParentSettingsActivity.this,
                                 "정보를 불러오지 못했습니다", Toast.LENGTH_SHORT).show();
                     }
                 });
@@ -121,7 +117,7 @@ public class SettingsActivity extends AppCompatActivity {
                 .setMessage("로그아웃 하시겠습니까?")
                 .setPositiveButton("로그아웃", (dialog, which) -> {
                     FirebaseAuth.getInstance().signOut();
-                    Intent intent = new Intent(SettingsActivity.this, LoginActivity.class);
+                    Intent intent = new Intent(ParentSettingsActivity.this, LoginActivity.class);
                     intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
                     startActivity(intent);
                     finish();
@@ -165,7 +161,7 @@ public class SettingsActivity extends AppCompatActivity {
                             if (!task.isSuccessful()) {
                                 FirebaseAuth.getInstance().signOut();
                             }
-                            Intent intent = new Intent(SettingsActivity.this, LoginActivity.class);
+                            Intent intent = new Intent(ParentSettingsActivity.this, LoginActivity.class);
                             intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
                             startActivity(intent);
                             finish();
@@ -173,11 +169,10 @@ public class SettingsActivity extends AppCompatActivity {
                     }
                     @Override
                     public void onCancelled(DatabaseError error) {
-                        // DB 정리 실패해도 계정 삭제 진행
                         db.child("users").child(parentUid).removeValue();
                         user.delete().addOnCompleteListener(task -> {
                             if (!task.isSuccessful()) FirebaseAuth.getInstance().signOut();
-                            Intent intent = new Intent(SettingsActivity.this, LoginActivity.class);
+                            Intent intent = new Intent(ParentSettingsActivity.this, LoginActivity.class);
                             intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
                             startActivity(intent);
                             finish();

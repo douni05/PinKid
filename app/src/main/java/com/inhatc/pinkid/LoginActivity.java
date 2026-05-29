@@ -1,7 +1,13 @@
 package com.inhatc.pinkid;
 
+import android.annotation.SuppressLint;
+import android.app.Dialog;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Patterns;
+import android.webkit.JavascriptInterface;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -9,23 +15,17 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import android.util.Patterns;
-
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
-import java.util.Random;
-
 public class LoginActivity extends AppCompatActivity {
 
     private FirebaseAuth auth;
-    private TextView txtCaptcha;
-    private String currentCaptcha;
-
-    private static final String CAPTCHA_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    private String captchaToken = null;
+    private TextView txtCaptchaStatus;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -34,22 +34,18 @@ public class LoginActivity extends AppCompatActivity {
 
         auth = FirebaseAuth.getInstance();
 
-        EditText editTxtID      = findViewById(R.id.editTxtID);
-        EditText editTxtPW      = findViewById(R.id.editTxtPW);
-        EditText editTxtCaptcha = findViewById(R.id.editTxtCaptcha);
-        Button btnLogin         = findViewById(R.id.btnLogin);
-        Button btnSignUp        = findViewById(R.id.btnSignUp);
-        TextView btnRefresh     = findViewById(R.id.btnRefreshCaptcha);
-        txtCaptcha              = findViewById(R.id.txtCaptcha);
+        EditText editTxtID     = findViewById(R.id.editTxtID);
+        EditText editTxtPW     = findViewById(R.id.editTxtPW);
+        Button btnLogin        = findViewById(R.id.btnLogin);
+        Button btnSignUp       = findViewById(R.id.btnSignUp);
+        Button btnCaptcha      = findViewById(R.id.btnCaptcha);
+        txtCaptchaStatus       = findViewById(R.id.txtCaptchaStatus);
 
-        refreshCaptcha();
-
-        btnRefresh.setOnClickListener(v -> refreshCaptcha());
+        btnCaptcha.setOnClickListener(v -> showCaptchaDialog());
 
         btnLogin.setOnClickListener(v -> {
             String email    = editTxtID.getText().toString().trim();
             String password = editTxtPW.getText().toString().trim();
-            String captcha  = editTxtCaptcha.getText().toString().trim().toUpperCase();
 
             if (email.isEmpty() || password.isEmpty()) {
                 Toast.makeText(this, "이메일과 비밀번호를 입력하세요", Toast.LENGTH_SHORT).show();
@@ -59,10 +55,8 @@ public class LoginActivity extends AppCompatActivity {
                 Toast.makeText(this, "올바른 이메일 형식을 입력하세요", Toast.LENGTH_SHORT).show();
                 return;
             }
-            if (!captcha.equals(currentCaptcha)) {
-                Toast.makeText(this, "보안 문자가 일치하지 않습니다", Toast.LENGTH_SHORT).show();
-                refreshCaptcha();
-                editTxtCaptcha.setText("");
+            if (captchaToken == null) {
+                Toast.makeText(this, "보안 문자를 완료해 주세요", Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -73,7 +67,6 @@ public class LoginActivity extends AppCompatActivity {
                             return;
                         }
                         String uid = result.getUser().getUid();
-                        // 역할 확인 후 직접 라우팅 (SplashActivity 우회)
                         FirebaseDatabase.getInstance("https://pinkid-1fec4-default-rtdb.asia-southeast1.firebasedatabase.app")
                                 .getReference("users").child(uid)
                                 .addListenerForSingleValueEvent(new ValueEventListener() {
@@ -106,8 +99,10 @@ public class LoginActivity extends AppCompatActivity {
                     .addOnFailureListener(e -> {
                         String msg = parseFirebaseAuthError(e.getMessage());
                         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
-                        refreshCaptcha();
-                        editTxtCaptcha.setText("");
+                        captchaToken = null;
+                        txtCaptchaStatus.setText("");
+                        Button btn = findViewById(R.id.btnCaptcha);
+                        btn.setText("🤖 보안 문자 인증하기");
                     });
         });
 
@@ -115,29 +110,58 @@ public class LoginActivity extends AppCompatActivity {
                 startActivity(new Intent(this, RegisterActivity.class)));
     }
 
-    /** Firebase 에러 코드를 한국어 메시지로 변환 */
+    @SuppressLint("SetJavaScriptEnabled")
+    private void showCaptchaDialog() {
+        Dialog dialog = new Dialog(this, android.R.style.Theme_Light_NoTitleBar_Fullscreen);
+        dialog.setContentView(R.layout.dialog_captcha);
+
+        Button btnClose = dialog.findViewById(R.id.btnCloseCaptcha);
+        btnClose.setOnClickListener(v -> dialog.dismiss());
+
+        WebView webView = dialog.findViewById(R.id.webViewDialog);
+        WebSettings settings = webView.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+
+        webView.addJavascriptInterface(new Object() {
+            @JavascriptInterface
+            public void onCaptchaSuccess(String token) {
+                captchaToken = token;
+                runOnUiThread(() -> {
+                    Button btn = findViewById(R.id.btnCaptcha);
+                    btn.setText("✅ 인증 완료");
+                    dialog.dismiss();
+                });
+            }
+
+            @JavascriptInterface
+            public void onCaptchaExpired() {
+                captchaToken = null;
+            }
+
+            @JavascriptInterface
+            public void onChallengeOpen() {
+                // 이미지 선택 챌린지 등장 — 별도 처리 없음
+            }
+
+            @JavascriptInterface
+            public void onChallengeClose() {
+                // 챌린지 닫힘 (성공/취소) — 성공 시 dismiss는 onCaptchaSuccess에서 처리
+            }
+        }, "Android");
+
+        webView.loadUrl("https://pinkid-1fec4.web.app/recaptcha.html");
+        dialog.show();
+    }
+
     private String parseFirebaseAuthError(String errorMessage) {
         if (errorMessage == null) return "로그인에 실패했습니다.";
         if (errorMessage.contains("no user record") ||
-            errorMessage.contains("user-not-found"))   return "등록되지 않은 이메일입니다.";
+            errorMessage.contains("user-not-found"))    return "등록되지 않은 이메일입니다.";
         if (errorMessage.contains("password is invalid") ||
-            errorMessage.contains("wrong-password"))   return "비밀번호가 올바르지 않습니다.";
+            errorMessage.contains("wrong-password"))    return "비밀번호가 올바르지 않습니다.";
         if (errorMessage.contains("too-many-requests")) return "잠시 후 다시 시도해 주세요.";
         if (errorMessage.contains("network"))           return "네트워크를 확인해 주세요.";
         return "로그인에 실패했습니다.";
-    }
-
-    private void refreshCaptcha() {
-        currentCaptcha = generateCaptchaString(5);
-        txtCaptcha.setText(currentCaptcha);
-    }
-
-    private String generateCaptchaString(int length) {
-        Random random = new Random();
-        StringBuilder sb = new StringBuilder(length);
-        for (int i = 0; i < length; i++) {
-            sb.append(CAPTCHA_CHARS.charAt(random.nextInt(CAPTCHA_CHARS.length())));
-        }
-        return sb.toString();
     }
 }

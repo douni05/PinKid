@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: transparent;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 500px;
+      overflow: visible;
+    }
+  </style>
+</head>
+<body>
+  <div class="g-recaptcha"
+    data-sitekey="6LdbYAItAAAAAJAOVcICXBiUUYaAASMtaIRyjrJ2"
+    data-callback="onSuccess"
+    data-expired-callback="onExpired"
+    data-theme="light">
+  </div>
+  <script>
+    function onSuccess(token) {
+      Android.onCaptchaSuccess(token);
+      Android.onChallengeClose();
+    }
+    function onExpired() {
+      Android.onCaptchaExpired();
+      Android.onChallengeClose();
+    }
+
+    // 챌린지 iframe 등장/사라짐 감지
+    let challengeOpen = false;
+    const observer = new MutationObserver(function(mutations) {
+      mutations.forEach(function(mutation) {
+        mutation.addedNodes.forEach(function(node) {
+          if (node.nodeName === 'IFRAME' && !challengeOpen) {
+            challengeOpen = true;
+            Android.onChallengeOpen();
+          }
+        });
+        mutation.removedNodes.forEach(function(node) {
+          if (node.nodeName === 'IFRAME' && challengeOpen) {
+            challengeOpen = false;
+            Android.onChallengeClose();
+          }
+        });
+      });
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  </script>
+</body>
+</html>
