@@ -111,7 +111,7 @@
             android:id="@+id/btnCaptcha"
             android:layout_width="0dp"
             android:layout_height="48dp"
-            android:text="🤖 보안 문자 인증하기"
+            android:text="보안 문자 인증하기"
             android:textSize="14sp"
             android:textColor="#3D8C5C"
             android:backgroundTint="#D2EFD8"

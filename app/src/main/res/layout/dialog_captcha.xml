@@ -6,35 +6,35 @@
     android:orientation="vertical"
     android:background="#F7FCF9">
 
-    <!-- 헤더: 타이틀 + 닫기 버튼 -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingStart="20dp"
-        android:paddingEnd="8dp"
-        android:background="#FFFFFF"
-        android:elevation="4dp">
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:paddingTop="32dp"
+        android:paddingBottom="32dp">
 
         <TextView
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="보안 문자 인증"
-            android:textSize="17sp"
+            android:text="PinKid"
+            android:textSize="32sp"
             android:textStyle="bold"
             android:textColor="#2D7A4F"/>
 
-        <Button
-            android:id="@+id/btnCloseCaptcha"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:text="✕"
-            android:textSize="18sp"
-            android:textColor="#888888"
-            android:backgroundTint="#00000000"
-            android:padding="0dp"/>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="우리 아이가 있는 곳, 언제나 함께"
+            android:textSize="14sp"
+            android:textColor="#5AAB78"
+            android:layout_marginTop="8dp"/>
+
+        <View
+            android:layout_width="48dp"
+            android:layout_height="4dp"
+            android:background="#66B375"
+            android:layout_marginTop="12dp"/>
 
     </LinearLayout>
 

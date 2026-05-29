@@ -5,6 +5,7 @@ import android.app.Dialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Patterns;
+import android.view.Window;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -112,11 +113,9 @@ public class LoginActivity extends AppCompatActivity {
 
     @SuppressLint("SetJavaScriptEnabled")
     private void showCaptchaDialog() {
-        Dialog dialog = new Dialog(this, android.R.style.Theme_Light_NoTitleBar_Fullscreen);
+        Dialog dialog = new Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         dialog.setContentView(R.layout.dialog_captcha);
-
-        Button btnClose = dialog.findViewById(R.id.btnCloseCaptcha);
-        btnClose.setOnClickListener(v -> dialog.dismiss());
 
         WebView webView = dialog.findViewById(R.id.webViewDialog);
         WebSettings settings = webView.getSettings();
@@ -128,6 +127,7 @@ public class LoginActivity extends AppCompatActivity {
             public void onCaptchaSuccess(String token) {
                 captchaToken = token;
                 runOnUiThread(() -> {
+                    txtCaptchaStatus.setText("");
                     Button btn = findViewById(R.id.btnCaptcha);
                     btn.setText("✅ 인증 완료");
                     dialog.dismiss();
@@ -146,7 +146,7 @@ public class LoginActivity extends AppCompatActivity {
 
             @JavascriptInterface
             public void onChallengeClose() {
-                // 챌린지 닫힘 (성공/취소) — 성공 시 dismiss는 onCaptchaSuccess에서 처리
+                // 챌린지 닫힘 — 성공 시 dismiss는 onCaptchaSuccess에서 처리
             }
         }, "Android");
 
