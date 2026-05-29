@@ -34,12 +34,13 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
 public class ChildActivity extends AppCompatActivity implements OnMapReadyCallback {
 
     private static final String DB_URL = "https://pinkid-1fec4-default-rtdb.asia-southeast1.firebasedatabase.app";
 
-    private TextView txtChildName, txtChildZone, txtCurrentAddress;
+    private TextView txtChildName, txtChildZone, txtCurrentAddress, txtLastUpdate;
     private GoogleMap miniMap;
     private Marker selfMarker;
     private FusedLocationProviderClient fusedClient;
@@ -66,6 +67,7 @@ public class ChildActivity extends AppCompatActivity implements OnMapReadyCallba
         txtChildName      = findViewById(R.id.txtChildName);
         txtChildZone      = findViewById(R.id.txtChildZone);
         txtCurrentAddress = findViewById(R.id.txtCurrentAddress);
+        txtLastUpdate     = findViewById(R.id.txtLastUpdate);
         Button btnSettings = findViewById(R.id.btnSettings);
 
         btnSettings.setOnClickListener(v ->
@@ -99,6 +101,7 @@ public class ChildActivity extends AppCompatActivity implements OnMapReadyCallba
                 LatLng pos = new LatLng(loc.getLatitude(), loc.getLongitude());
                 updateMap(pos);
                 updateAddress(loc.getLatitude(), loc.getLongitude());
+                updateTimestampText(System.currentTimeMillis());
             }
         };
 
@@ -169,6 +172,19 @@ public class ChildActivity extends AppCompatActivity implements OnMapReadyCallba
             selfMarker.setPosition(pos);
             miniMap.animateCamera(CameraUpdateFactory.newLatLng(pos));
         }
+    }
+
+    private void updateTimestampText(long timestamp) {
+        long diffMs = System.currentTimeMillis() - timestamp;
+        long mins   = TimeUnit.MILLISECONDS.toMinutes(diffMs);
+        long hours  = TimeUnit.MILLISECONDS.toHours(diffMs);
+        long days   = TimeUnit.MILLISECONDS.toDays(diffMs);
+        String text;
+        if (mins < 1)       text = "방금 업데이트";
+        else if (hours < 1) text = mins  + "분 전 업데이트";
+        else if (days < 1)  text = hours + "시간 전 업데이트";
+        else                text = days  + "일 전 업데이트";
+        if (txtLastUpdate != null) runOnUiThread(() -> txtLastUpdate.setText(text));
     }
 
     private void updateAddress(double lat, double lng) {

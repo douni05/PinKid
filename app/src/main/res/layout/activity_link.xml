@@ -88,7 +88,7 @@
                             android:textSize="26sp"
                             android:textStyle="bold"
                             android:textColor="#2D7A4F"
-                            android:hintTextColor="#AAAAAA"
+                            android:textColorHint="#AAAAAA"
                             android:gravity="center"
                             android:letterSpacing="0.2"
                             android:background="@android:color/transparent"
@@ -204,7 +204,17 @@
                 android:text="부모님께 이 코드를 알려주세요"
                 android:textSize="15sp"
                 android:textColor="#1A1A1A"
-                android:layout_marginBottom="32dp"/>
+                android:layout_marginBottom="12dp"/>
+
+            <Button
+                android:id="@+id/btn_copy_code"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="📋  코드 복사"
+                android:textSize="13sp"
+                android:textColor="#3D8C5C"
+                android:backgroundTint="#00000000"
+                android:layout_marginBottom="20dp"/>
 
             <View
                 android:layout_width="200dp"

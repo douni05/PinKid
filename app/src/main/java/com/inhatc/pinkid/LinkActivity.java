@@ -1,5 +1,8 @@
 package com.inhatc.pinkid;
 
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Typeface;
@@ -126,11 +129,15 @@ public class LinkActivity extends AppCompatActivity {
                                         checkAndConnect(childUid, etCode);
                                     }
                                     @Override
-                                    public void onCancelled(DatabaseError error) {}
+                                    public void onCancelled(DatabaseError error) {
+                                        Toast.makeText(LinkActivity.this, "네트워크 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
+                                    }
                                 });
                     }
                     @Override
-                    public void onCancelled(DatabaseError error) {}
+                    public void onCancelled(DatabaseError error) {
+                        Toast.makeText(LinkActivity.this, "네트워크 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
+                    }
                 });
     }
 
@@ -157,7 +164,9 @@ public class LinkActivity extends AppCompatActivity {
                                 });
                     }
                     @Override
-                    public void onCancelled(DatabaseError error) {}
+                    public void onCancelled(DatabaseError error) {
+                        Toast.makeText(LinkActivity.this, "네트워크 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
+                    }
                 });
     }
 
@@ -178,7 +187,9 @@ public class LinkActivity extends AppCompatActivity {
                         }
                     }
                     @Override
-                    public void onCancelled(DatabaseError error) {}
+                    public void onCancelled(DatabaseError error) {
+                        Toast.makeText(LinkActivity.this, "네트워크 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
+                    }
                 });
     }
 
@@ -231,7 +242,9 @@ public class LinkActivity extends AppCompatActivity {
                         childrenListContainer.addView(row);
                     }
                     @Override
-                    public void onCancelled(DatabaseError error) {}
+                    public void onCancelled(DatabaseError error) {
+                        Toast.makeText(LinkActivity.this, "네트워크 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
+                    }
                 });
     }
 
@@ -261,8 +274,20 @@ public class LinkActivity extends AppCompatActivity {
         tvCode       = findViewById(R.id.tv_code);
         tvLinkStatus = findViewById(R.id.tv_link_status);
         btnHome      = findViewById(R.id.btn_home);
+        Button btnCopyCode = findViewById(R.id.btn_copy_code);
 
         layoutChild.setVisibility(View.VISIBLE);
+
+        // 코드 클립보드 복사
+        btnCopyCode.setOnClickListener(v -> {
+            String code = tvCode.getText().toString();
+            if (!code.isEmpty() && !code.equals("------")) {
+                ClipboardManager clipboard =
+                        (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                clipboard.setPrimaryClip(ClipData.newPlainText("연결 코드", code));
+                Toast.makeText(this, "코드가 복사되었습니다", Toast.LENGTH_SHORT).show();
+            }
+        });
 
         // 내 코드 불러오기
         db.child("users").child(uid).child("myCode")
@@ -278,7 +303,9 @@ public class LinkActivity extends AppCompatActivity {
                         }
                     }
                     @Override
-                    public void onCancelled(DatabaseError error) {}
+                    public void onCancelled(DatabaseError error) {
+                        Toast.makeText(LinkActivity.this, "네트워크 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
+                    }
                 });
 
         // 부모가 연결할 때 감지
@@ -317,7 +344,9 @@ public class LinkActivity extends AppCompatActivity {
                                     if (btnHome != null) btnHome.setVisibility(View.VISIBLE);
                                 }
                                 @Override
-                                public void onCancelled(DatabaseError error) {}
+                                public void onCancelled(DatabaseError error) {
+                        Toast.makeText(LinkActivity.this, "네트워크 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
+                    }
                             });
                 } else {
                     tvLinkStatus.setText("연결 대기 중...");
@@ -326,7 +355,9 @@ public class LinkActivity extends AppCompatActivity {
                 }
             }
             @Override
-            public void onCancelled(DatabaseError error) {}
+            public void onCancelled(DatabaseError error) {
+                android.util.Log.w("PinKid", "linkedWith listener cancelled: " + error.getMessage());
+            }
         };
         db.child("users").child(uid).child("linkedWith")
                 .addValueEventListener(linkedWithListener);

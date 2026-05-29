@@ -9,6 +9,8 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.util.Patterns;
+
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -53,6 +55,10 @@ public class LoginActivity extends AppCompatActivity {
                 Toast.makeText(this, "이메일과 비밀번호를 입력하세요", Toast.LENGTH_SHORT).show();
                 return;
             }
+            if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                Toast.makeText(this, "올바른 이메일 형식을 입력하세요", Toast.LENGTH_SHORT).show();
+                return;
+            }
             if (!captcha.equals(currentCaptcha)) {
                 Toast.makeText(this, "보안 문자가 일치하지 않습니다", Toast.LENGTH_SHORT).show();
                 refreshCaptcha();
@@ -62,6 +68,10 @@ public class LoginActivity extends AppCompatActivity {
 
             auth.signInWithEmailAndPassword(email, password)
                     .addOnSuccessListener(result -> {
+                        if (result.getUser() == null) {
+                            Toast.makeText(this, "로그인에 실패했습니다. 다시 시도하세요.", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
                         String uid = result.getUser().getUid();
                         // 역할 확인 후 직접 라우팅 (SplashActivity 우회)
                         FirebaseDatabase.getInstance("https://pinkid-1fec4-default-rtdb.asia-southeast1.firebasedatabase.app")
@@ -88,12 +98,14 @@ public class LoginActivity extends AppCompatActivity {
                                     }
                                     @Override
                                     public void onCancelled(DatabaseError error) {
-                                        Toast.makeText(LoginActivity.this, "오류가 발생했습니다", Toast.LENGTH_SHORT).show();
+                                        Toast.makeText(LoginActivity.this,
+                                                "네트워크 오류가 발생했습니다. 다시 시도하세요.", Toast.LENGTH_SHORT).show();
                                     }
                                 });
                     })
                     .addOnFailureListener(e -> {
-                        Toast.makeText(this, "로그인 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        String msg = parseFirebaseAuthError(e.getMessage());
+                        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
                         refreshCaptcha();
                         editTxtCaptcha.setText("");
                     });
@@ -101,6 +113,18 @@ public class LoginActivity extends AppCompatActivity {
 
         btnSignUp.setOnClickListener(v ->
                 startActivity(new Intent(this, RegisterActivity.class)));
+    }
+
+    /** Firebase 에러 코드를 한국어 메시지로 변환 */
+    private String parseFirebaseAuthError(String errorMessage) {
+        if (errorMessage == null) return "로그인에 실패했습니다.";
+        if (errorMessage.contains("no user record") ||
+            errorMessage.contains("user-not-found"))   return "등록되지 않은 이메일입니다.";
+        if (errorMessage.contains("password is invalid") ||
+            errorMessage.contains("wrong-password"))   return "비밀번호가 올바르지 않습니다.";
+        if (errorMessage.contains("too-many-requests")) return "잠시 후 다시 시도해 주세요.";
+        if (errorMessage.contains("network"))           return "네트워크를 확인해 주세요.";
+        return "로그인에 실패했습니다.";
     }
 
     private void refreshCaptcha() {

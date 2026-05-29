@@ -3,12 +3,15 @@ package com.inhatc.pinkid;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.location.Geocoder;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.NotificationCompat;
 
@@ -16,10 +19,12 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -29,6 +34,7 @@ import com.google.firebase.database.ValueEventListener;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 public class ParentHomeActivity extends AppCompatActivity implements OnMapReadyCallback {
 
@@ -36,44 +42,74 @@ public class ParentHomeActivity extends AppCompatActivity implements OnMapReadyC
     private static final String CHANNEL_ID = "pinkid_geofence";
     private static final double GEOFENCE_RADIUS_METERS = 300.0;
 
+    // 아이 마커 색상 순환 목록
+    private static final float[] MARKER_HUES = {
+            BitmapDescriptorFactory.HUE_GREEN,
+            BitmapDescriptorFactory.HUE_AZURE,
+            BitmapDescriptorFactory.HUE_ORANGE,
+            BitmapDescriptorFactory.HUE_VIOLET,
+            BitmapDescriptorFactory.HUE_ROSE
+    };
+
     private TextView txtGreetingName, txtChildName, txtChildZone, txtCurrentAddress;
+    private TextView txtLastUpdate, txtMapHint;
     private DatabaseReference db;
     private String parentUid;
 
     private GoogleMap miniMap;
-    // 아이 UID → 마커
-    private final Map<String, Marker> childMarkers = new HashMap<>();
-    // 아이 UID → 위치 리스너
+    private final Map<String, Marker>             childMarkers      = new HashMap<>();
     private final Map<String, ValueEventListener> locationListeners = new HashMap<>();
-    // 아이 UID → 이름
-    private final Map<String, String> childNames = new HashMap<>();
+    private final Map<String, String>             childNames        = new HashMap<>();
+    private final Map<String, Float>              childHues         = new HashMap<>();
+    private int hueIndex = 0;
 
-    // 등록된 위치: locationKey → [lat, lng]
-    private final Map<String, double[]> registeredLocations = new HashMap<>();
-    // 등록된 위치 별명: locationKey → nickname
-    private final Map<String, String> locationNicknames = new HashMap<>();
-    // 지오펜스 상태: "childUid_locationKey" → 현재 존 안에 있는지 여부
-    private final Map<String, Boolean> geofenceState = new HashMap<>();
-
+    // 지오펜스
+    private final Map<String, double[]>  registeredLocations = new HashMap<>();
+    private final Map<String, String>    locationNicknames   = new HashMap<>();
+    private final Map<String, Boolean>   geofenceState       = new HashMap<>();
     private ValueEventListener registeredLocationsListener;
     private int notificationId = 2000;
+
+    // 알림 권한 요청 런처
+    private ActivityResultLauncher<String> notifPermLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // ActivityResultLauncher는 항상 onCreate 초반에 등록해야 함
+        notifPermLauncher = registerForActivityResult(
+                new ActivityResultContracts.RequestPermission(), granted -> { /* no-op */ });
+
         setContentView(R.layout.activity_parent_home);
+
+        // ── null 체크 ──
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) {
+            startActivity(new Intent(this, LoginActivity.class));
+            finish();
+            return;
+        }
 
         txtGreetingName   = findViewById(R.id.txtGreetingName);
         txtChildName      = findViewById(R.id.txtChildName);
         txtChildZone      = findViewById(R.id.txtChildZone);
         txtCurrentAddress = findViewById(R.id.txtCurrentAddress);
-        Button btnConnectChild      = findViewById(R.id.btnConnectChild);
-        Button btnRegisterLocation  = findViewById(R.id.btnRegisterLocation);
-        Button btnSettings          = findViewById(R.id.btnSettings);
-        View mapOverlay             = findViewById(R.id.mapOverlay);
+        txtLastUpdate     = findViewById(R.id.txtLastUpdate);
+        txtMapHint        = findViewById(R.id.txtMapHint);
+        Button btnConnectChild     = findViewById(R.id.btnConnectChild);
+        Button btnRegisterLocation = findViewById(R.id.btnRegisterLocation);
+        Button btnSettings         = findViewById(R.id.btnSettings);
+        View   mapOverlay          = findViewById(R.id.mapOverlay);
 
-        db = FirebaseDatabase.getInstance(DB_URL).getReference();
-        parentUid = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        db        = FirebaseDatabase.getInstance(DB_URL).getReference();
+        parentUid = currentUser.getUid();
+
+        // 알림 런타임 권한 요청 (Android 13+ 필수)
+        if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+            notifPermLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS);
+        }
 
         createNotificationChannel();
 
@@ -84,19 +120,12 @@ public class ParentHomeActivity extends AppCompatActivity implements OnMapReadyC
                 .commit();
         mapFragment.getMapAsync(this);
 
-        // 전체화면 지도
         mapOverlay.setOnClickListener(v ->
                 startActivity(new Intent(this, ParentMapActivity.class)));
-
-        // 아이 연결하기 → 항상 LinkActivity (추가 연결 가능)
         btnConnectChild.setOnClickListener(v ->
                 startActivity(new Intent(this, LinkActivity.class)));
-
-        // 위치 등록하기
         btnRegisterLocation.setOnClickListener(v ->
                 startActivity(new Intent(this, LocationRegisterActivity.class)));
-
-        // 설정
         btnSettings.setOnClickListener(v ->
                 startActivity(new Intent(this, SettingsActivity.class)));
 
@@ -104,19 +133,17 @@ public class ParentHomeActivity extends AppCompatActivity implements OnMapReadyC
         loadParentData();
     }
 
-    // ─────────────────────── 알림 채널 생성 ───────────────────────
+    // ─────────────────────── 알림 채널 ───────────────────────
 
     private void createNotificationChannel() {
         NotificationChannel channel = new NotificationChannel(
-                CHANNEL_ID,
-                "위치 이탈 알림",
-                NotificationManager.IMPORTANCE_HIGH);
+                CHANNEL_ID, "위치 이탈 알림", NotificationManager.IMPORTANCE_HIGH);
         channel.setDescription("아이가 등록된 안전 구역을 벗어날 때 알립니다.");
         NotificationManager nm = getSystemService(NotificationManager.class);
         if (nm != null) nm.createNotificationChannel(channel);
     }
 
-    // ─────────────────────── 등록된 위치 로드 ───────────────────────
+    // ─────────────────────── 등록 위치 로드 ───────────────────────
 
     private void loadRegisteredLocations() {
         registeredLocationsListener = new ValueEventListener() {
@@ -125,8 +152,8 @@ public class ParentHomeActivity extends AppCompatActivity implements OnMapReadyC
                 registeredLocations.clear();
                 locationNicknames.clear();
                 for (DataSnapshot loc : snapshot.getChildren()) {
-                    Double lat = loc.child("latitude").getValue(Double.class);
-                    Double lng = loc.child("longitude").getValue(Double.class);
+                    Double lat      = loc.child("latitude").getValue(Double.class);
+                    Double lng      = loc.child("longitude").getValue(Double.class);
                     String nickname = loc.child("nickname").getValue(String.class);
                     if (lat != null && lng != null) {
                         registeredLocations.put(loc.getKey(), new double[]{lat, lng});
@@ -135,9 +162,10 @@ public class ParentHomeActivity extends AppCompatActivity implements OnMapReadyC
                     }
                 }
             }
-
             @Override
-            public void onCancelled(DatabaseError error) {}
+            public void onCancelled(DatabaseError error) {
+                android.util.Log.w("PinKid", "registeredLocations load failed: " + error.getMessage());
+            }
         };
         db.child("users").child(parentUid).child("registeredLocations")
                 .addValueEventListener(registeredLocationsListener);
@@ -159,6 +187,7 @@ public class ParentHomeActivity extends AppCompatActivity implements OnMapReadyC
                         if (childCount == 0) {
                             txtChildName.setText("연결된 아이 없음");
                             txtChildZone.setText("");
+                            txtMapHint.setText("연결된 아이가 없습니다\n'아이 연결하기'를 눌러주세요");
                         } else if (childCount == 1) {
                             String childUid = childrenSnap.getChildren().iterator().next().getKey();
                             loadChildAndListen(childUid);
@@ -170,9 +199,13 @@ public class ParentHomeActivity extends AppCompatActivity implements OnMapReadyC
                             }
                         }
                     }
-
                     @Override
-                    public void onCancelled(DatabaseError error) {}
+                    public void onCancelled(DatabaseError error) {
+                        runOnUiThread(() ->
+                            android.widget.Toast.makeText(ParentHomeActivity.this,
+                                "데이터 로드 실패. 네트워크를 확인해 주세요.",
+                                android.widget.Toast.LENGTH_SHORT).show());
+                    }
                 });
     }
 
@@ -188,17 +221,22 @@ public class ParentHomeActivity extends AppCompatActivity implements OnMapReadyC
                                 txtChildName.setText(name);
                             }
                         }
+                        // 아이마다 고유 마커 색상 지정
+                        if (!childHues.containsKey(childUid)) {
+                            childHues.put(childUid, MARKER_HUES[hueIndex % MARKER_HUES.length]);
+                            hueIndex++;
+                        }
                         startLocationListener(childUid);
                     }
-
                     @Override
-                    public void onCancelled(DatabaseError error) {}
+                    public void onCancelled(DatabaseError error) {
+                        android.util.Log.w("PinKid", "child name load failed: " + error.getMessage());
+                    }
                 });
     }
 
     private void startLocationListener(String childUid) {
         DatabaseReference locRef = db.child("location").child(childUid);
-
         ValueEventListener listener = locRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot snapshot) {
@@ -206,14 +244,21 @@ public class ParentHomeActivity extends AppCompatActivity implements OnMapReadyC
                 Double lng = snapshot.child("longitude").getValue(Double.class);
                 if (lat == null || lng == null) return;
 
-                LatLng position = new LatLng(lat, lng);
+                // 첫 위치 수신 시 안내 문구 숨김
+                runOnUiThread(() -> txtMapHint.setVisibility(View.GONE));
+
+                LatLng position  = new LatLng(lat, lng);
                 String childName = childNames.getOrDefault(childUid, "아이");
+                float  hue       = childHues.getOrDefault(childUid,
+                                        BitmapDescriptorFactory.HUE_GREEN);
 
                 // 미니 맵 마커 업데이트
                 if (miniMap != null) {
                     if (!childMarkers.containsKey(childUid)) {
-                        Marker m = miniMap.addMarker(
-                                new MarkerOptions().position(position).title(childName));
+                        Marker m = miniMap.addMarker(new MarkerOptions()
+                                .position(position)
+                                .title(childName)
+                                .icon(BitmapDescriptorFactory.defaultMarker(hue)));
                         childMarkers.put(childUid, m);
                         miniMap.moveCamera(CameraUpdateFactory.newLatLngZoom(position, 14f));
                     } else {
@@ -221,76 +266,77 @@ public class ParentHomeActivity extends AppCompatActivity implements OnMapReadyC
                     }
                 }
 
+                // 마지막 업데이트 시간 표시
+                Long timestamp = snapshot.child("timestamp").getValue(Long.class);
+                if (timestamp != null) updateTimestampText(timestamp);
+
                 updateAddress(lat, lng);
                 checkGeofence(childUid, childName, lat, lng);
             }
-
             @Override
-            public void onCancelled(DatabaseError error) {}
+            public void onCancelled(DatabaseError error) {
+                android.util.Log.w("PinKid", "location listener cancelled: " + error.getMessage());
+            }
         });
-
         locationListeners.put(childUid, listener);
     }
 
-    // ─────────────────────── 지오펜스 확인 ───────────────────────
+    // ─────────────────────── 업데이트 시간 ───────────────────────
 
-    /**
-     * 아이의 현재 위치와 등록된 모든 안전 구역을 비교한다.
-     * 이전에 구역 안에 있었는데 지금 벗어났으면 알림을 발송한다.
-     */
+    private void updateTimestampText(long timestamp) {
+        long diffMs  = System.currentTimeMillis() - timestamp;
+        long diffMin = TimeUnit.MILLISECONDS.toMinutes(diffMs);
+        String text;
+        if      (diffMin < 1)    text = "방금 업데이트";
+        else if (diffMin < 60)   text = diffMin + "분 전 업데이트";
+        else if (diffMin < 1440) text = TimeUnit.MILLISECONDS.toHours(diffMs) + "시간 전 업데이트";
+        else                     text = TimeUnit.MILLISECONDS.toDays(diffMs) + "일 전 업데이트";
+        runOnUiThread(() -> txtLastUpdate.setText(text));
+    }
+
+    // ─────────────────────── 지오펜스 ───────────────────────
+
     private void checkGeofence(String childUid, String childName,
                                 double childLat, double childLng) {
         for (Map.Entry<String, double[]> entry : registeredLocations.entrySet()) {
-            String locKey   = entry.getKey();
-            double[] coords = entry.getValue();
-            String stateKey = childUid + "_" + locKey;
-            String locName  = locationNicknames.getOrDefault(locKey, "안전 구역");
+            String   locKey   = entry.getKey();
+            double[] coords   = entry.getValue();
+            String   stateKey = childUid + "_" + locKey;
+            String   locName  = locationNicknames.getOrDefault(locKey, "안전 구역");
 
-            double distance = haversineDistance(childLat, childLng, coords[0], coords[1]);
-            boolean inZone  = distance <= GEOFENCE_RADIUS_METERS;
+            double  distance = haversineDistance(childLat, childLng, coords[0], coords[1]);
+            boolean inZone   = distance <= GEOFENCE_RADIUS_METERS;
+            Boolean prev     = geofenceState.get(stateKey);
 
-            Boolean prevState = geofenceState.get(stateKey);
-
-            if (prevState == null) {
-                // 최초 상태 기록 (알림 없음)
+            if (prev == null) {
                 geofenceState.put(stateKey, inZone);
-            } else if (prevState && !inZone) {
-                // 구역에서 벗어남 → 알림
+            } else if (prev && !inZone) {
                 geofenceState.put(stateKey, false);
-                sendGeofenceNotification(
-                        childName + " 이(가) '" + locName + "' 에서 벗어났습니다.");
-            } else if (!prevState && inZone) {
-                // 구역에 들어옴 → 상태만 업데이트
+                sendGeofenceNotification(childName + " 이(가) '" + locName + "' 에서 벗어났습니다.");
+            } else if (!prev && inZone) {
                 geofenceState.put(stateKey, true);
             }
         }
     }
 
-    /**
-     * Haversine 공식으로 두 GPS 좌표 사이 거리(미터)를 계산한다.
-     */
-    private double haversineDistance(double lat1, double lng1,
-                                     double lat2, double lng2) {
-        final double R = 6_371_000.0; // 지구 반경 (미터)
+    private double haversineDistance(double lat1, double lng1, double lat2, double lng2) {
+        final double R = 6_371_000.0;
         double dLat = Math.toRadians(lat2 - lat1);
         double dLng = Math.toRadians(lng2 - lng1);
         double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
                 + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
                 * Math.sin(dLng / 2) * Math.sin(dLng / 2);
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     private void sendGeofenceNotification(String message) {
-        NotificationCompat.Builder builder =
-                new NotificationCompat.Builder(this, CHANNEL_ID)
-                        .setSmallIcon(android.R.drawable.ic_dialog_alert)
-                        .setContentTitle("PinKid 위치 알림")
-                        .setContentText(message)
-                        .setStyle(new NotificationCompat.BigTextStyle().bigText(message))
-                        .setPriority(NotificationCompat.PRIORITY_HIGH)
-                        .setAutoCancel(true);
-
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                .setContentTitle("PinKid 위치 알림")
+                .setContentText(message)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(message))
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true);
         NotificationManager nm = getSystemService(NotificationManager.class);
         if (nm != null) nm.notify(notificationId++, builder.build());
     }
@@ -330,12 +376,10 @@ public class ParentHomeActivity extends AppCompatActivity implements OnMapReadyC
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // 아이 위치 리스너 해제
-        for (Map.Entry<String, ValueEventListener> entry : locationListeners.entrySet()) {
-            db.child("location").child(entry.getKey()).removeEventListener(entry.getValue());
+        for (Map.Entry<String, ValueEventListener> e : locationListeners.entrySet()) {
+            db.child("location").child(e.getKey()).removeEventListener(e.getValue());
         }
-        // 등록 위치 리스너 해제
-        if (registeredLocationsListener != null) {
+        if (registeredLocationsListener != null && parentUid != null) {
             db.child("users").child(parentUid).child("registeredLocations")
                     .removeEventListener(registeredLocationsListener);
         }

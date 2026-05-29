@@ -286,9 +286,12 @@ cd PinKid
       }
     },
     "location": {
-      "$uid": {
-        ".read": "auth != null",
-        ".write": "auth != null && auth.uid == $uid"
+      "$childUid": {
+        ".read": "auth != null && (
+          auth.uid == $childUid ||
+          root.child('users').child(auth.uid).child('children').child($childUid).exists()
+        )",
+        ".write": "auth != null && auth.uid == $childUid"
       }
     },
     "child_codes": {

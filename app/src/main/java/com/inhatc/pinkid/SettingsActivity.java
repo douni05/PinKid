@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
@@ -46,13 +47,7 @@ public class SettingsActivity extends AppCompatActivity {
 
         btnBack.setOnClickListener(v -> finish());
 
-        btnLogout.setOnClickListener(v -> {
-            FirebaseAuth.getInstance().signOut();
-            Intent intent = new Intent(SettingsActivity.this, LoginActivity.class);
-            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(intent);
-            finish();
-        });
+        btnLogout.setOnClickListener(v -> showLogoutDialog());
 
         btnWithdraw.setOnClickListener(v -> showWithdrawDialog());
 
@@ -80,7 +75,10 @@ public class SettingsActivity extends AppCompatActivity {
                     }
 
                     @Override
-                    public void onCancelled(DatabaseError error) {}
+                    public void onCancelled(DatabaseError error) {
+                        Toast.makeText(SettingsActivity.this,
+                                "정보를 불러오지 못했습니다", Toast.LENGTH_SHORT).show();
+                    }
                 });
     }
 
@@ -117,6 +115,21 @@ public class SettingsActivity extends AppCompatActivity {
         }
     }
 
+    private void showLogoutDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("로그아웃")
+                .setMessage("로그아웃 하시겠습니까?")
+                .setPositiveButton("로그아웃", (dialog, which) -> {
+                    FirebaseAuth.getInstance().signOut();
+                    Intent intent = new Intent(SettingsActivity.this, LoginActivity.class);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(intent);
+                    finish();
+                })
+                .setNegativeButton("취소", null)
+                .show();
+    }
+
     private void showWithdrawDialog() {
         new AlertDialog.Builder(this)
                 .setTitle("탈퇴하기")
@@ -128,9 +141,13 @@ public class SettingsActivity extends AppCompatActivity {
 
     private void withdraw() {
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
-        if (user == null) return;
+        if (user == null) {
+            Toast.makeText(this, "이미 로그아웃된 상태입니다", Toast.LENGTH_SHORT).show();
+            startActivity(new Intent(this, LoginActivity.class));
+            finish();
+            return;
+        }
 
-        // 연결된 아이들의 linkedWith 먼저 정리
         db.child("users").child(parentUid).child("children")
                 .addListenerForSingleValueEvent(new ValueEventListener() {
                     @Override
@@ -141,12 +158,13 @@ public class SettingsActivity extends AppCompatActivity {
                                 db.child("users").child(childUid).child("linkedWith").removeValue();
                             }
                         }
-                        // 부모 데이터 삭제
                         db.child("users").child(parentUid).removeValue();
                         db.child("location").child(parentUid).removeValue();
 
-                        // Auth 계정 삭제
                         user.delete().addOnCompleteListener(task -> {
+                            if (!task.isSuccessful()) {
+                                FirebaseAuth.getInstance().signOut();
+                            }
                             Intent intent = new Intent(SettingsActivity.this, LoginActivity.class);
                             intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
                             startActivity(intent);
@@ -155,9 +173,10 @@ public class SettingsActivity extends AppCompatActivity {
                     }
                     @Override
                     public void onCancelled(DatabaseError error) {
-                        // 정리 실패해도 계정은 삭제
+                        // DB 정리 실패해도 계정 삭제 진행
                         db.child("users").child(parentUid).removeValue();
                         user.delete().addOnCompleteListener(task -> {
+                            if (!task.isSuccessful()) FirebaseAuth.getInstance().signOut();
                             Intent intent = new Intent(SettingsActivity.this, LoginActivity.class);
                             intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
                             startActivity(intent);

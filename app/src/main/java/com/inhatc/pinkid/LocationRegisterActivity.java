@@ -131,11 +131,17 @@ public class LocationRegisterActivity extends AppCompatActivity {
                 double lng = results.get(0).getLongitude();
                 saveLocation(address, nickname, lat, lng);
             } else {
-                // 좌표 없이 저장 (지오펜스 비활성)
-                runOnUiThread(() -> Toast.makeText(this,
-                        "정확한 좌표를 찾지 못했습니다. 위치 이탈 알림이 비활성화됩니다.",
-                        Toast.LENGTH_LONG).show());
-                saveLocation(address, nickname, null, null);
+                // 좌표 없음 → 사용자에게 확인 후 저장
+                runOnUiThread(() ->
+                    new androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle("위치 좌표를 찾지 못했습니다")
+                        .setMessage("입력한 주소로 정확한 좌표를 찾지 못했습니다.\n" +
+                                "이 위치는 저장되지만 이탈 알림이 동작하지 않습니다.\n\n" +
+                                "그래도 저장하시겠습니까?")
+                        .setPositiveButton("저장", (d, w) -> saveLocation(address, nickname, null, null))
+                        .setNegativeButton("취소", null)
+                        .show()
+                );
             }
         });
     }
@@ -185,7 +191,10 @@ public class LocationRegisterActivity extends AppCompatActivity {
                     }
 
                     @Override
-                    public void onCancelled(DatabaseError error) {}
+                    public void onCancelled(DatabaseError error) {
+                        Toast.makeText(LocationRegisterActivity.this,
+                                "목록을 불러오지 못했습니다", Toast.LENGTH_SHORT).show();
+                    }
                 });
     }
 
