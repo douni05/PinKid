@@ -24,7 +24,7 @@
 ## 앱 소개
 
 **PinKid**는 보호자와 자녀를 연결하는 Android 위치 공유 앱입니다.  
-보호자는 자녀의 실시간 GPS 위치를 지도에서 확인하고, 집·학교 등 안전 구역을 사전에 등록해 두면 자녀가 해당 구역을 벗어났을 때 즉시 푸시 알림을 받을 수 있습니다.
+보호자는 자녀의 실시간 GPS 위치를 지도에서 확인하고, 집·학교 등 안전 구역을 사전에 등록해 두면 자녀가 해당 구역을 벗어나거나 도착할 때 즉시 푸시 알림을 받을 수 있습니다. 자녀는 위급 상황 시 SOS 버튼으로 보호자에게 긴급 알림을 보낼 수 있습니다.
 
 | 구분 | 설명 |
 |------|------|
@@ -99,8 +99,9 @@
 [ChildActivity]
     ├── 미니 맵에 본인 위치 표시
     ├── Foreground GPS 서비스 자동 시작
+    ├── SOS 버튼 → 보호자에게 즉시 긴급 알림
     └── 설정(⚙) → ChildSettingsActivity
-          ├── 부모 재등록 → LinkActivity
+          ├── 내 연결 코드 확인 및 복사
           ├── 로그아웃 → LoginActivity
           └── 탈퇴하기 → LoginActivity
 ```
@@ -212,6 +213,7 @@ pinkid-realtime-db/
 │               └── longitude : Double    # 경도 (지오코딩)
 │
 │       │   ── 자녀 전용 ──
+│       ├── myCode     : String           # 6자리 연결 코드
 │       └── linkedWith : String           # 연결된 보호자 UID
 │
 ├── location/
@@ -247,8 +249,8 @@ app/src/main/
 │   ├── SettingsActivity.java        # 보호자 설정
 │   ├── LocationRegisterActivity.java # 안전 구역 등록·관리
 │   │
-│   ├── ChildActivity.java           # 자녀 홈 (본인 위치 미니맵)
-│   ├── ChildSettingsActivity.java   # 자녀 설정 (부모 재등록 포함)
+│   ├── ChildActivity.java           # 자녀 홈 (본인 위치 미니맵, SOS 긴급 연락)
+│   ├── ChildSettingsActivity.java   # 자녀 설정 (연결 코드 확인)
 │   │
 │   └── LocationService.java         # Foreground GPS 서비스
 │
@@ -264,8 +266,7 @@ app/src/main/
     │   ├── activity_child_settings.xml
     │   └── activity_location_register.xml
     ├── drawable/
-    │   ├── border_box.xml           # 녹색 테두리 라운드 박스
-    │   ├── rounded_white_bg.xml     # 흰색 라운드 배경
+    │   ├── edit_bg.xml              # 입력 필드 공통 배경 (연두 테두리, 흰색 채우기)
     │   └── circle_back_btn.xml      # 원형 뒤로가기 버튼
     └── values/
         ├── themes.xml               # 앱 테마 (Material Button 스타일)
@@ -337,11 +338,13 @@ cd PinKid
 
 **4. Google Maps API 키 설정**
 1. [Google Cloud Console](https://console.cloud.google.com/)에서 **Maps SDK for Android** 활성화
-2. API 키 발급 후 `AndroidManifest.xml`의 아래 항목에 입력:
-```xml
-<meta-data
-    android:name="com.google.android.geo.API_KEY"
-    android:value="YOUR_MAPS_API_KEY" />
+2. API 키 발급 후 프로젝트 루트의 `local.properties`에 추가:
+```
+MAPS_API_KEY=YOUR_MAPS_API_KEY
+```
+3. `app/build.gradle`의 `defaultConfig`에 아래가 이미 선언되어 있어 자동 주입됩니다:
+```groovy
+manifestPlaceholders = [mapsApiKey: project.findProperty("MAPS_API_KEY") ?: ""]
 ```
 
 **5. 빌드 & 실행**
@@ -362,7 +365,7 @@ Android Studio에서 프로젝트 열기 → Sync Gradle → Run
 | `FOREGROUND_SERVICE` | 백그라운드 위치 서비스 실행 |
 | `FOREGROUND_SERVICE_LOCATION` | 포그라운드 서비스 위치 타입 선언 |
 | `INTERNET` | Firebase 통신 |
-| `POST_NOTIFICATIONS` | 지오펜스 이탈 알림 발송 (Android 13+) |
+| `POST_NOTIFICATIONS` | 지오펜스 이탈·도착 / SOS / 위치 미수신 알림 발송 (Android 13+) |
 
 <br>
 
