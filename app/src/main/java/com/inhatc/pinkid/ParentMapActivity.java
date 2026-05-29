@@ -8,6 +8,7 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
@@ -104,7 +105,8 @@ public class ParentMapActivity extends AppCompatActivity implements OnMapReadyCa
                 if (!childMarkers.containsKey(childUid)) {
                     // 새 마커 생성
                     Marker marker = googleMap.addMarker(
-                            new MarkerOptions().position(position).title(childName));
+                            new MarkerOptions().position(position).title(childName)
+                                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
                     childMarkers.put(childUid, marker);
 
                     // 첫 마커면 카메라 이동

@@ -81,7 +81,7 @@ public class RegisterActivity extends AppCompatActivity {
                 return;
             }
             if (!checkParent.isChecked() && !checkChild.isChecked()) {
-                Toast.makeText(this, "역할을 선택하세요 (학부모 또는 아이)", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "역할을 선택하세요 (부모님 또는 아이)", Toast.LENGTH_SHORT).show();
                 return;
             }
 
