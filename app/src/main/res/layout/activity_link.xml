@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F7FCF9"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <!-- PinKid 타이틀 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="PinKid"
+            android:textSize="32sp"
+            android:textStyle="bold"
+            android:textColor="#2D7A4F"
+            android:layout_marginTop="20dp"/>
+
+        <View
+            android:layout_width="48dp"
+            android:layout_height="4dp"
+            android:background="#66B375"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="36dp"/>
+
+        <!-- ═══════════════ 부모 UI ═══════════════ -->
+        <LinearLayout
+            android:id="@+id/layout_parent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="아이 연결하기"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="#1A1A1A"
+                android:layout_marginBottom="16dp"/>
+
+            <!-- 코드 입력 카드 -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardBackgroundColor="#D2EFD8"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp"
+                android:layout_marginBottom="24dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="아이의 6자리 코드 입력"
+                        android:textSize="12sp"
+                        android:textColor="#3D8C5C"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="10dp"/>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <EditText
+                            android:id="@+id/et_code"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:hint="A1B2C3"
+                            android:inputType="textCapCharacters"
+                            android:maxLength="6"
+                            android:textSize="26sp"
+                            android:textStyle="bold"
+                            android:textColor="#2D7A4F"
+                            android:hintTextColor="#AAAAAA"
+                            android:gravity="center"
+                            android:letterSpacing="0.2"
+                            android:background="@android:color/transparent"
+                            android:padding="8dp"/>
+
+                        <Button
+                            android:id="@+id/btn_connect"
+                            android:layout_width="wrap_content"
+                            android:layout_height="44dp"
+                            android:text="연결"
+                            android:textSize="14sp"
+                            android:textColor="#FFFFFF"
+                            android:backgroundTint="#66B375"
+                            android:paddingStart="20dp"
+                            android:paddingEnd="20dp"/>
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </androidx.cardview.widget.CardView>
+
+            <!-- 연결된 아이 목록 -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="연결된 아이 목록"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textColor="#1A1A1A"
+                android:layout_marginBottom="10dp"/>
+
+            <LinearLayout
+                android:id="@+id/children_list_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"/>
+
+            <TextView
+                android:id="@+id/tv_no_children"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="연결된 아이가 없습니다"
+                android:textSize="14sp"
+                android:textColor="#AAAAAA"
+                android:gravity="center"
+                android:padding="20dp"
+                android:visibility="gone"/>
+
+            <Button
+                android:id="@+id/btn_done"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="홈으로 가기"
+                android:textSize="15sp"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#66B375"
+                android:layout_marginTop="20dp"/>
+
+        </LinearLayout>
+
+        <!-- ═══════════════ 아이 UI ═══════════════ -->
+        <LinearLayout
+            android:id="@+id/layout_child"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="내 연결 코드"
+                android:textSize="14sp"
+                android:textColor="#3D8C5C"
+                android:textStyle="bold"
+                android:layout_marginBottom="16dp"/>
+
+            <!-- 코드 표시 카드 -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardBackgroundColor="#D2EFD8"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp"
+                android:layout_marginBottom="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:padding="28dp">
+
+                    <TextView
+                        android:id="@+id/tv_code"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="------"
+                        android:textSize="52sp"
+                        android:textStyle="bold"
+                        android:textColor="#2D7A4F"
+                        android:letterSpacing="0.3"/>
+
+                </LinearLayout>
+
+            </androidx.cardview.widget.CardView>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="부모님께 이 코드를 알려주세요"
+                android:textSize="15sp"
+                android:textColor="#1A1A1A"
+                android:layout_marginBottom="32dp"/>
+
+            <View
+                android:layout_width="200dp"
+                android:layout_height="1dp"
+                android:background="#DDDDDD"
+                android:layout_marginBottom="24dp"/>
+
+            <TextView
+                android:id="@+id/tv_link_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="연결 대기 중..."
+                android:textSize="14sp"
+                android:textColor="#AAAAAA"
+                android:layout_marginBottom="16dp"/>
+
+            <Button
+                android:id="@+id/btn_home"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="홈으로 가기"
+                android:textSize="15sp"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#66B375"
+                android:visibility="gone"/>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</ScrollView>

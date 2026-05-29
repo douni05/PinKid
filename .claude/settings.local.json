@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find \"C:/Users/douni/Downloads\" -name \"main_child.xml\" -o -name \"settings_child.xml\" 2>/dev/null)",
+      "Bash(./gradlew assembleDebug)"
+    ]
+  }
+}
