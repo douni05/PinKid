@@ -159,7 +159,7 @@
             android:layout_height="200dp"
             app:cardCornerRadius="12dp"
             app:cardElevation="4dp"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="20dp">
 
             <FrameLayout
                 android:id="@+id/miniMapContainer"
@@ -167,6 +167,28 @@
                 android:layout_height="match_parent"/>
 
         </androidx.cardview.widget.CardView>
+
+        <!-- SOS 긴급 버튼 -->
+        <Button
+            android:id="@+id/btnSOS"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:text="🚨  SOS 긴급 연락"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#E53935"
+            app:cornerRadius="12dp"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="버튼을 누르면 보호자에게 즉시 알림이 전송됩니다"
+            android:textSize="11sp"
+            android:textColor="#AAAAAA"
+            android:gravity="center"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="16dp"/>
 
     </LinearLayout>
 

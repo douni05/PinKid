@@ -7,6 +7,12 @@ import android.location.Geocoder;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.appcompat.app.AlertDialog;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -69,9 +75,12 @@ public class ChildActivity extends AppCompatActivity implements OnMapReadyCallba
         txtCurrentAddress = findViewById(R.id.txtCurrentAddress);
         txtLastUpdate     = findViewById(R.id.txtLastUpdate);
         Button btnSettings = findViewById(R.id.btnSettings);
+        Button btnSOS      = findViewById(R.id.btnSOS);
 
         btnSettings.setOnClickListener(v ->
                 startActivity(new Intent(this, ChildSettingsActivity.class)));
+
+        btnSOS.setOnClickListener(v -> showSosConfirmDialog());
 
         db = FirebaseDatabase.getInstance(DB_URL).getReference();
         fusedClient = LocationServices.getFusedLocationProviderClient(this);
@@ -173,6 +182,31 @@ public class ChildActivity extends AppCompatActivity implements OnMapReadyCallba
             miniMap.animateCamera(CameraUpdateFactory.newLatLng(pos));
         }
     }
+
+    // ─────────────────────── SOS ───────────────────────
+
+    private void showSosConfirmDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("🚨 SOS 긴급 연락")
+                .setMessage("보호자에게 긴급 알림을 보내시겠습니까?")
+                .setPositiveButton("보내기", (d, w) -> sendSosAlert())
+                .setNegativeButton("취소", null)
+                .show();
+    }
+
+    private void sendSosAlert() {
+        Map<String, Object> sosData = new HashMap<>();
+        sosData.put("timestamp", System.currentTimeMillis());
+        sosData.put("childName", childName);
+
+        db.child("sos").child(childUid).setValue(sosData)
+                .addOnSuccessListener(unused ->
+                        Toast.makeText(this, "긴급 알림을 보냈습니다", Toast.LENGTH_SHORT).show())
+                .addOnFailureListener(e ->
+                        Toast.makeText(this, "전송 실패. 다시 시도하세요.", Toast.LENGTH_SHORT).show());
+    }
+
+    // ─────────────────────── 업데이트 시간 ───────────────────────
 
     private void updateTimestampText(long timestamp) {
         long diffMs = System.currentTimeMillis() - timestamp;

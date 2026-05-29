@@ -6,6 +6,8 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Geocoder;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -38,9 +40,11 @@ import java.util.concurrent.TimeUnit;
 
 public class ParentHomeActivity extends AppCompatActivity implements OnMapReadyCallback {
 
-    private static final String DB_URL = "https://pinkid-1fec4-default-rtdb.asia-southeast1.firebasedatabase.app";
-    private static final String CHANNEL_ID = "pinkid_geofence";
+    private static final String DB_URL                = "https://pinkid-1fec4-default-rtdb.asia-southeast1.firebasedatabase.app";
+    private static final String CHANNEL_ID            = "pinkid_geofence";
+    private static final String SOS_CHANNEL_ID        = "pinkid_sos";
     private static final double GEOFENCE_RADIUS_METERS = 300.0;
+    private static final long   LOCATION_TIMEOUT_MS   = 5 * 60 * 1000L; // 5분
 
     // 아이 마커 색상 순환 목록
     private static final float[] MARKER_HUES = {
@@ -69,6 +73,14 @@ public class ParentHomeActivity extends AppCompatActivity implements OnMapReadyC
     private final Map<String, Boolean>   geofenceState       = new HashMap<>();
     private ValueEventListener registeredLocationsListener;
     private int notificationId = 2000;
+
+    // SOS
+    private long sosListenStartTime;
+    private final Map<String, ValueEventListener> sosListeners = new HashMap<>();
+
+    // 위치 미수신 타임아웃
+    private final Handler               timeoutHandler   = new Handler(Looper.getMainLooper());
+    private final Map<String, Runnable> timeoutRunnables = new HashMap<>();
 
     // 알림 권한 요청 런처
     private ActivityResultLauncher<String> notifPermLauncher;
@@ -136,11 +148,21 @@ public class ParentHomeActivity extends AppCompatActivity implements OnMapReadyC
     // ─────────────────────── 알림 채널 ───────────────────────
 
     private void createNotificationChannel() {
-        NotificationChannel channel = new NotificationChannel(
-                CHANNEL_ID, "위치 이탈 알림", NotificationManager.IMPORTANCE_HIGH);
-        channel.setDescription("아이가 등록된 안전 구역을 벗어날 때 알립니다.");
         NotificationManager nm = getSystemService(NotificationManager.class);
-        if (nm != null) nm.createNotificationChannel(channel);
+        if (nm == null) return;
+
+        // 지오펜스 채널
+        NotificationChannel geofenceChannel = new NotificationChannel(
+                CHANNEL_ID, "위치 알림", NotificationManager.IMPORTANCE_HIGH);
+        geofenceChannel.setDescription("아이의 안전 구역 이탈·도착 및 위치 미수신 알림");
+        nm.createNotificationChannel(geofenceChannel);
+
+        // SOS 채널 (최우선)
+        NotificationChannel sosChannel = new NotificationChannel(
+                SOS_CHANNEL_ID, "SOS 긴급 알림", NotificationManager.IMPORTANCE_MAX);
+        sosChannel.setDescription("아이가 SOS를 요청할 때 즉시 알립니다.");
+        sosChannel.enableVibration(true);
+        nm.createNotificationChannel(sosChannel);
     }
 
     // ─────────────────────── 등록 위치 로드 ───────────────────────
@@ -174,6 +196,7 @@ public class ParentHomeActivity extends AppCompatActivity implements OnMapReadyC
     // ─────────────────────── 부모/아이 데이터 로드 ───────────────────────
 
     private void loadParentData() {
+        sosListenStartTime = System.currentTimeMillis(); // 이 시각 이후 SOS만 알림
         db.child("users").child(parentUid)
                 .addListenerForSingleValueEvent(new ValueEventListener() {
                     @Override
@@ -227,6 +250,7 @@ public class ParentHomeActivity extends AppCompatActivity implements OnMapReadyC
                             hueIndex++;
                         }
                         startLocationListener(childUid);
+                        startSosListener(childUid);
                     }
                     @Override
                     public void onCancelled(DatabaseError error) {
@@ -272,6 +296,7 @@ public class ParentHomeActivity extends AppCompatActivity implements OnMapReadyC
 
                 updateAddress(lat, lng);
                 checkGeofence(childUid, childName, lat, lng);
+                resetLocationTimeout(childUid, childName);
             }
             @Override
             public void onCancelled(DatabaseError error) {
@@ -312,9 +337,10 @@ public class ParentHomeActivity extends AppCompatActivity implements OnMapReadyC
                 geofenceState.put(stateKey, inZone);
             } else if (prev && !inZone) {
                 geofenceState.put(stateKey, false);
-                sendGeofenceNotification(childName + " 이(가) '" + locName + "' 에서 벗어났습니다.");
+                sendGeofenceNotification(childName + "이(가) '" + locName + "'에서 벗어났습니다.");
             } else if (!prev && inZone) {
                 geofenceState.put(stateKey, true);
+                sendGeofenceNotification(childName + "이(가) '" + locName + "'에 도착했습니다. ✓");
             }
         }
     }
@@ -339,6 +365,54 @@ public class ParentHomeActivity extends AppCompatActivity implements OnMapReadyC
                 .setAutoCancel(true);
         NotificationManager nm = getSystemService(NotificationManager.class);
         if (nm != null) nm.notify(notificationId++, builder.build());
+    }
+
+    // ─────────────────────── SOS ───────────────────────
+
+    private void startSosListener(String childUid) {
+        ValueEventListener listener = new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                Long timestamp = snapshot.child("timestamp").getValue(Long.class);
+                // 앱 실행 이후에 생성된 SOS만 알림 (이전 이력 무시)
+                if (timestamp != null && timestamp > sosListenStartTime) {
+                    String name = childNames.getOrDefault(childUid, "아이");
+                    sendSosNotification("🚨 " + name + "이(가) 긴급 도움을 요청했습니다!\n즉시 확인해 주세요.");
+                }
+            }
+            @Override
+            public void onCancelled(DatabaseError error) {
+                android.util.Log.w("PinKid", "SOS listener cancelled: " + error.getMessage());
+            }
+        };
+        db.child("sos").child(childUid).addValueEventListener(listener);
+        sosListeners.put(childUid, listener);
+    }
+
+    private void sendSosNotification(String message) {
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, SOS_CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                .setContentTitle("🚨 긴급 SOS")
+                .setContentText(message)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(message))
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setAutoCancel(true);
+        NotificationManager nm = getSystemService(NotificationManager.class);
+        if (nm != null) nm.notify(1000, builder.build()); // 고정 ID → 중복 SOS 시 갱신
+    }
+
+    // ─────────────────────── 위치 미수신 타임아웃 ───────────────────────
+
+    private void resetLocationTimeout(String childUid, String childName) {
+        Runnable prev = timeoutRunnables.get(childUid);
+        if (prev != null) timeoutHandler.removeCallbacks(prev);
+
+        Runnable timeout = () -> sendGeofenceNotification(
+                childName + "의 기기에서 5분 이상 위치 정보가 수신되지 않습니다.\n"
+                + "배터리 또는 네트워크 상태를 확인해 주세요.");
+        timeoutRunnables.put(childUid, timeout);
+        timeoutHandler.postDelayed(timeout, LOCATION_TIMEOUT_MS);
     }
 
     // ─────────────────────── 주소 역지오코딩 ───────────────────────
@@ -376,12 +450,20 @@ public class ParentHomeActivity extends AppCompatActivity implements OnMapReadyC
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        // 위치 리스너 해제
         for (Map.Entry<String, ValueEventListener> e : locationListeners.entrySet()) {
             db.child("location").child(e.getKey()).removeEventListener(e.getValue());
         }
+        // 등록 위치 리스너 해제
         if (registeredLocationsListener != null && parentUid != null) {
             db.child("users").child(parentUid).child("registeredLocations")
                     .removeEventListener(registeredLocationsListener);
         }
+        // SOS 리스너 해제
+        for (Map.Entry<String, ValueEventListener> e : sosListeners.entrySet()) {
+            db.child("sos").child(e.getKey()).removeEventListener(e.getValue());
+        }
+        // 타임아웃 핸들러 전체 해제
+        timeoutHandler.removeCallbacksAndMessages(null);
     }
 }

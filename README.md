@@ -51,12 +51,21 @@
 ### 🗺️ 안전 구역 관리 (지오펜스)
 - 보호자가 주소와 별명(예: 집, 학교)을 등록하면 자동 지오코딩으로 위도·경도 저장
 - **Haversine 공식**으로 자녀↔등록 위치 간 거리 계산 (기준 반경: **300m**)
-- 자녀가 구역을 **벗어날 때** 보호자에게 안드로이드 푸시 알림 발송
+- 자녀가 구역을 **벗어날 때 / 도착할 때** 모두 보호자에게 푸시 알림 발송
 - 복수 구역 등록 가능, 구역별 독립적 상태 추적
+
+### 🚨 SOS 긴급 연락
+- 자녀 홈 화면의 **SOS 버튼** 한 번으로 보호자에게 즉시 긴급 알림 발송
+- 확인 다이얼로그로 오발송 방지
+- 별도 SOS 알림 채널 (최우선 진동·소리)
+
+### ⏱️ 위치 미수신 알림
+- 마지막 위치 수신 후 **5분** 이상 업데이트 없으면 보호자에게 알림
+- 기기 배터리 방전·네트워크 단절 등 이상 상황을 빠르게 감지
 
 ### ⚙️ 설정
 - 보호자: 연결된 자녀 목록·본인 정보 확인, 로그아웃, 회원 탈퇴
-- 자녀: 연결된 보호자 확인, 부모 재등록, 로그아웃, 회원 탈퇴
+- 자녀: 연결된 보호자 확인, **내 연결 코드 확인 및 복사**, 로그아웃, 회원 탈퇴
 - 탈퇴 시 양방향 연결 데이터(children / linkedWith) 자동 정리
 
 <br>
@@ -165,8 +174,18 @@ checkGeofence(childUid, lat, lng)
         ├── distance ≤ 300m  →  inZone = true
         └── distance > 300m  →  inZone = false
                 │
-                └── 이전 상태(inZone) → 현재 상태(outZone)
+                ├── outZone → inZone : "도착" 알림
+                └── inZone → outZone : "이탈" 알림
                         → sendGeofenceNotification()
+
+위치 미수신 감지
+        마지막 수신 후 5분 경과 → "기기 꺼진 것 같아요" 알림
+        새 위치 수신 시 타이머 리셋
+
+SOS 흐름
+        아이가 SOS 버튼 → Firebase sos/{childUid} 쓰기
+                → 부모 앱에서 ValueEventListener 감지
+                → PRIORITY_MAX 알림 즉시 발송
 ```
 
 <br>
@@ -201,8 +220,13 @@ pinkid-realtime-db/
 │       ├── longitude : Double            # 현재 경도
 │       └── timestamp : Long             # 마지막 업데이트 시각 (ms)
 │
-└── child_codes/
-    └── {6자리코드} : childUid            # 아이 코드 조회 테이블 (영구)
+├── child_codes/
+│   └── {6자리코드} : childUid            # 아이 코드 조회 테이블 (영구)
+│
+└── sos/
+    └── {childUid}/
+        ├── timestamp : Long              # SOS 발생 시각 (ms)
+        └── childName : String            # 아이 이름
 ```
 
 <br>
@@ -297,6 +321,15 @@ cd PinKid
     "child_codes": {
       ".read": "auth != null",
       ".write": "auth != null"
+    },
+    "sos": {
+      "$childUid": {
+        ".read": "auth != null && (
+          auth.uid == $childUid ||
+          root.child('users').child(auth.uid).child('children').child($childUid).exists()
+        )",
+        ".write": "auth != null && auth.uid == $childUid"
+      }
     }
   }
 }
